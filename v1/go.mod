@@ -1,3 +1,4 @@
-module github.com/hyy-Chen/gee/v1
+module v1
 
 go 1.20
+
