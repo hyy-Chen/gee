@@ -9,6 +9,7 @@ package gee
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type EngineOption func(engine *Engine)
@@ -18,11 +19,13 @@ type Engine struct {
 	// 为了便于框架停止时使用者执行额外操作，提供了stop方法使得使用者可以自定义此类操作
 	stop func() error
 	// routers 存放路由位置以及对应处理函数
-	*router
+	router *router
 	//routers map[string]HandleFunc
 	//
 	// RouterGroup 路由分组
 	*RouterGroup
+
+	groups []*RouterGroup
 }
 
 // New 使用可变参数构造，便于使用者为项目启动时为框架添加一些操作
@@ -30,9 +33,11 @@ func New(opts ...EngineOption) *Engine {
 	engine := &Engine{
 		router:      newRouter(),
 		RouterGroup: newRouterGroup(),
+		groups:      make([]*RouterGroup, 0),
 	}
 	engine.RouterGroup.engine = engine
 	engine.RouterGroup.prefix = "/"
+	engine.groups = append(engine.groups, engine.RouterGroup)
 	for _, opt := range opts {
 		opt(engine)
 	}
@@ -44,7 +49,7 @@ func New(opts ...EngineOption) *Engine {
 // 转发请求：将请求转发到web框架
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//TODO implement me
-	node, params, ok := e.getRouter(r.Method, r.URL.Path)
+	node, params, ok := e.router.getRouter(r.Method, r.URL.Path)
 	fmt.Println("接口", r.URL.Path, "接受到", r.Method, "请求")
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
@@ -53,9 +58,24 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// 找到就转发请求
 		c := NewContext(w, r)
 		c.params = params
-		node.handleFunc(c)
+
+		mids := e.filterMiddlewares(c.Pattern)
+		c.handlers = append(mids, node.handlers...)
+		c.Next()
+
 		c.flashDataToResponse()
 	}
+}
+
+// filterMiddlewares 匹配当前url所对应的所有中间件
+func (e *Engine) filterMiddlewares(pattern string) HandlersChain {
+	middlewares := make(HandlersChain, 0)
+	for _, group := range e.groups {
+		if strings.HasPrefix(pattern, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+	return middlewares
 }
 
 // Run 启动服务
