@@ -64,7 +64,7 @@ func checkRouterPath(path string) error {
 	return nil
 }
 
-func (r *router) addRouter(method string, pattern string, handleFunc HandleFunc) {
+func (r *router) addRouter(method string, pattern string, handleFunc HandlersChain) {
 	log.Printf("try add router %s - %s\n", method, pattern)
 	if err := checkRouterPath(pattern); err != nil {
 		panic(err)
@@ -77,7 +77,7 @@ func (r *router) addRouter(method string, pattern string, handleFunc HandleFunc)
 		r.trees[method] = root
 	}
 	if pattern == "/" {
-		root.handleFunc = handleFunc
+		root.handlers = handleFunc
 		log.Printf("add router %s - %s success\n", method, pattern)
 		return
 	}
@@ -89,7 +89,7 @@ func (r *router) addRouter(method string, pattern string, handleFunc HandleFunc)
 			panic(fmt.Sprintf("web: 路由冲突 - %s", pattern))
 		}
 	}
-	root.handleFunc = handleFunc
+	root.handlers = handleFunc
 	log.Printf("add router %s - %s success\n", method, pattern)
 }
 
@@ -106,7 +106,7 @@ func (r *router) getRouter(method string, pattern string) (*node, map[string]str
 		return nil, nil, false
 	}
 	if pattern == "/" {
-		return root, params, root.handleFunc != nil
+		return root, params, root.handlers != nil
 	}
 	// 切割得到路由路径
 	parts := strings.Split(pattern[1:], "/")
@@ -124,8 +124,8 @@ func (r *router) getRouter(method string, pattern string) (*node, map[string]str
 		if strings.HasPrefix(root.part, "*") {
 			index := strings.Index(pattern, part)
 			params[root.part[1:]] = pattern[index:]
-			return root, params, root.handleFunc != nil
+			return root, params, root.handlers != nil
 		}
 	}
-	return root, params, root.handleFunc != nil
+	return root, params, root.handlers != nil
 }

@@ -22,8 +22,14 @@ type Context struct {
 	response http.ResponseWriter
 	request  *http.Request
 	Method   string
-	Pattern  string
-	params   map[string]string
+	// 存储路径
+	Pattern string
+	// 存储查询参数
+	params map[string]string
+	// 存储处理责任链
+	handlers HandlersChain
+
+	index int
 
 	// cacheQuery 内部维护一份查询参数数据
 	cacheQuery url.Values
@@ -44,9 +50,19 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 		request:  r,
 		Method:   r.Method,
 		Pattern:  r.URL.Path,
+		index:    -1,
 		params:   map[string]string{},
 		header:   map[string]string{},
 		data:     []byte{},
+	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	n := len(c.handlers)
+	for c.index < n {
+		c.handlers[c.index](c)
+		c.index++
 	}
 }
 

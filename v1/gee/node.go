@@ -13,7 +13,7 @@ import "strings"
 type node struct {
 	part       string           // 当前节点的路由名称
 	children   map[string]*node // 静态路由子节点信息
-	handleFunc HandleFunc       //当前节点处理函数
+	handlers   HandlersChain    //当前节点处理函数
 	paramChild *node            // 参数路由
 	starChild  *node            // 通配符路由
 
